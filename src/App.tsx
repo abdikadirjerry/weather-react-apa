@@ -1,5 +1,15 @@
 import { useEffect, useState } from "react";
-import { CloudSun, Clock3, Heart, MapPin, Star, Trash2 } from "lucide-react";
+import {
+  AlertCircle,
+  CloudSun,
+  Clock3,
+  Heart,
+  LoaderCircle,
+  MapPin,
+  RefreshCw,
+  Star,
+  Trash2,
+} from "lucide-react";
 
 import { ForecastCard } from "./components/forecast-card";
 import { SearchBar } from "./components/search-bar";
@@ -10,6 +20,10 @@ import type { GeocodingResult, WeatherData } from "./types/weather";
 const HISTORY_KEY = "weatherly-search-history";
 const FAVORITES_KEY = "weatherly-favorite-cities";
 const MAX_HISTORY_ITEMS = 5;
+
+type RetryTarget =
+  | { type: "search"; city: string }
+  | { type: "location"; location: GeocodingResult };
 
 function readSavedLocations(key: string): GeocodingResult[] {
   try {
@@ -46,19 +60,31 @@ function getLocationLabel(location: GeocodingResult): string {
     .join(", ");
 }
 
+function getFriendlyErrorMessage(error: unknown): string {
+  if (error instanceof TypeError) {
+    return "We couldn't connect to the weather service. Check your internet connection and try again.";
+  }
+
+  return "We couldn't load the weather right now. The service may be temporarily unavailable. Please try again.";
+}
+
 function App() {
   const [weather, setWeather] = useState<WeatherData | null>(null);
   const [activeLocation, setActiveLocation] = useState<GeocodingResult | null>(
     null,
   );
+
   const [history, setHistory] = useState<GeocodingResult[]>(() =>
     readSavedLocations(HISTORY_KEY),
   );
+
   const [favorites, setFavorites] = useState<GeocodingResult[]>(() =>
     readSavedLocations(FAVORITES_KEY),
   );
+
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
+  const [retryTarget, setRetryTarget] = useState<RetryTarget | null>(null);
 
   useEffect(() => {
     try {
@@ -77,14 +103,20 @@ function App() {
   }, [favorites]);
 
   async function loadLocation(location: GeocodingResult) {
+    if (isLoading) {
+      return;
+    }
+
     setIsLoading(true);
     setError("");
+    setRetryTarget({ type: "location", location });
 
     try {
       const weatherData = await getWeather(location);
 
       setWeather(weatherData);
       setActiveLocation(location);
+      setRetryTarget(null);
 
       setHistory((previous) => {
         const withoutDuplicate = previous.filter(
@@ -95,27 +127,31 @@ function App() {
       });
     } catch (loadError) {
       console.error("Unable to load weather:", loadError);
-      setError(
-        "Unable to load weather for this city. Please check your connection and try again.",
-      );
+      setError(getFriendlyErrorMessage(loadError));
     } finally {
       setIsLoading(false);
     }
   }
 
   async function handleSearch(city: string) {
-    if (!city.trim() || isLoading) {
+    const trimmedCity = city.trim();
+
+    if (!trimmedCity || isLoading) {
       return;
     }
 
     setIsLoading(true);
     setError("");
+    setRetryTarget({ type: "search", city: trimmedCity });
 
     try {
-      const location = await searchCity(city);
+      const location = await searchCity(trimmedCity);
 
       if (!location) {
-        setError(`We couldn't find "${city.trim()}". Try another city name.`);
+        setError(
+          `We couldn't find "${trimmedCity}". Check the spelling or try another city.`,
+        );
+        setRetryTarget(null);
         return;
       }
 
@@ -123,6 +159,7 @@ function App() {
 
       setWeather(weatherData);
       setActiveLocation(location);
+      setRetryTarget(null);
 
       setHistory((previous) => {
         const withoutDuplicate = previous.filter(
@@ -133,11 +170,21 @@ function App() {
       });
     } catch (searchError) {
       console.error("Weather search failed:", searchError);
-      setError(
-        "Something went wrong while loading the weather. Please try again.",
-      );
+      setError(getFriendlyErrorMessage(searchError));
     } finally {
       setIsLoading(false);
+    }
+  }
+
+  async function retryLastAction() {
+    if (!retryTarget || isLoading) {
+      return;
+    }
+
+    if (retryTarget.type === "search") {
+      await handleSearch(retryTarget.city);
+    } else {
+      await loadLocation(retryTarget.location);
     }
   }
 
@@ -188,12 +235,55 @@ function App() {
           <SearchBar onSearch={handleSearch} isLoading={isLoading} />
 
           {error && (
-            <p
+            <div
               role="alert"
-              className="mt-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
+              className="mt-4 flex flex-col gap-3 rounded-2xl border border-red-200 bg-red-50 p-4 sm:flex-row sm:items-center"
             >
-              {error}
-            </p>
+              <AlertCircle
+                size={21}
+                className="shrink-0 text-red-600"
+                aria-hidden="true"
+              />
+
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-semibold text-red-800">
+                  Something needs your attention
+                </p>
+                <p className="mt-1 text-sm leading-5 text-red-700">{error}</p>
+                {weather && (
+                  <p className="mt-2 text-xs text-red-600">
+                    Your previously loaded weather is still available below.
+                  </p>
+                )}
+              </div>
+
+              {retryTarget && (
+                <button
+                  type="button"
+                  onClick={() => void retryLastAction()}
+                  disabled={isLoading}
+                  className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl border border-red-200 bg-white px-3 py-2 text-sm font-semibold text-red-700 transition hover:bg-red-100 focus:outline-none focus:ring-2 focus:ring-red-300 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  <RefreshCw size={15} />
+                  Try again
+                </button>
+              )}
+            </div>
+          )}
+
+          {isLoading && (
+            <div
+              role="status"
+              aria-live="polite"
+              className="mt-4 flex items-center justify-center gap-3 rounded-2xl border border-sky-100 bg-sky-50 px-4 py-4 text-sm text-sky-800"
+            >
+              <LoaderCircle size={20} className="animate-spin" />
+              <span className="font-medium">
+                {retryTarget?.type === "search"
+                  ? `Searching for ${retryTarget.city}...`
+                  : "Loading weather data..."}
+              </span>
+            </div>
           )}
         </section>
 
@@ -372,31 +462,49 @@ function App() {
               </div>
             </section>
           </div>
+        ) : isLoading ? (
+          <section
+            aria-hidden="true"
+            className="rounded-3xl border border-slate-200 bg-white px-6 py-16 text-center shadow-sm"
+          >
+            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-sky-50 text-sky-600">
+              <LoaderCircle size={28} className="animate-spin" />
+            </div>
+            <p className="mt-5 font-semibold text-slate-900">
+              Getting your forecast ready
+            </p>
+            <p className="mt-2 text-sm text-slate-500">
+              Please wait while we retrieve the latest weather data.
+            </p>
+          </section>
+        ) : error ? (
+          <section className="rounded-3xl border border-dashed border-slate-300 bg-white px-6 py-12 text-center">
+            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-100 text-slate-500">
+              <CloudSun size={26} />
+            </div>
+            <h2 className="mt-5 text-lg font-semibold text-slate-900">
+              No weather to display yet
+            </h2>
+            <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-slate-500">
+              Check the message above and try searching for a city again. Your
+              weather forecast will appear here when the request succeeds.
+            </p>
+          </section>
         ) : (
-          !isLoading &&
-          !error && (
-            <section className="rounded-3xl border border-dashed border-slate-300 bg-white px-6 py-16 text-center">
-              <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-100 text-slate-500">
-                <CloudSun size={26} />
-              </div>
+          <section className="rounded-3xl border border-dashed border-slate-300 bg-white px-6 py-16 text-center">
+            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-100 text-slate-500">
+              <CloudSun size={26} />
+            </div>
 
-              <h2 className="mt-5 text-lg font-semibold text-slate-900">
-                Check the weather anywhere
-              </h2>
+            <h2 className="mt-5 text-lg font-semibold text-slate-900">
+              Check the weather anywhere
+            </h2>
 
-              <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-slate-500">
-                Search for a city above to view its current weather and
-                seven-day forecast. Your successful searches will be saved
-                automatically.
-              </p>
-            </section>
-          )
-        )}
-
-        {isLoading && (
-          <p role="status" className="mt-6 text-center text-sm text-slate-500">
-            Loading weather data...
-          </p>
+            <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-slate-500">
+              Search for a city above to view its current weather and seven-day
+              forecast. Your successful searches will be saved automatically.
+            </p>
+          </section>
         )}
 
         <footer className="mt-10 text-center text-xs text-slate-400">
