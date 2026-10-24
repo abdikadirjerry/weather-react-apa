@@ -1,26 +1,131 @@
-import type { LucideIcon } from "lucide-react";
+"use client";
+
+import { Droplets, Gauge, MapPin, Thermometer, Wind } from "lucide-react";
+
+import type { WeatherData } from "@/types/weather";
 
 interface WeatherCardProps {
-  label: string;
-  value: string;
-  icon: LucideIcon;
+  weather: WeatherData;
 }
 
-export function WeatherCard({ label, value, icon: Icon }: WeatherCardProps) {
-  return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition-shadow hover:shadow-md">
-      <div className="flex items-center justify-between gap-4">
-        <div>
-          <p className="text-sm font-medium text-slate-500">{label}</p>
-          <p className="mt-2 text-2xl font-bold tracking-tight text-slate-950">
-            {value}
-          </p>
-        </div>
+function getWeatherDescription(code: number): string {
+  if (code === 0) {
+    return "Clear sky";
+  }
 
-        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-700">
-          <Icon size={20} strokeWidth={1.8} />
+  if ([1, 2, 3].includes(code)) {
+    return "Partly cloudy";
+  }
+
+  if ([45, 48].includes(code)) {
+    return "Foggy";
+  }
+
+  if ([51, 53, 55, 56, 57].includes(code)) {
+    return "Drizzle";
+  }
+
+  if ([61, 63, 65, 66, 67].includes(code)) {
+    return "Rainy";
+  }
+
+  if ([71, 73, 75, 77].includes(code)) {
+    return "Snowy";
+  }
+
+  if ([80, 81, 82].includes(code)) {
+    return "Rain showers";
+  }
+
+  if ([85, 86].includes(code)) {
+    return "Snow showers";
+  }
+
+  if ([95, 96, 99].includes(code)) {
+    return "Thunderstorm";
+  }
+
+  return "Unknown conditions";
+}
+
+export function WeatherCard({ weather }: WeatherCardProps) {
+  const { current, location } = weather;
+
+  return (
+    <section className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
+      <div className="bg-slate-950 px-6 py-8 text-white sm:px-8 sm:py-10">
+        <div className="flex flex-col justify-between gap-8 sm:flex-row sm:items-center">
+          <div>
+            <div className="flex items-center gap-2 text-sm text-slate-300">
+              <MapPin size={16} />
+              <span>
+                {location.name}
+                {location.country ? `, ${location.country}` : ""}
+              </span>
+            </div>
+
+            <div className="mt-6 flex items-start gap-3">
+              <span className="text-6xl font-bold tracking-tight sm:text-7xl">
+                {Math.round(current.temperature)}°
+              </span>
+
+              <span className="mt-2 text-lg text-slate-300">C</span>
+            </div>
+
+            <p className="mt-3 text-lg font-medium text-slate-200">
+              {getWeatherDescription(current.weatherCode)}
+            </p>
+
+            <p className="mt-1 text-sm text-slate-400">
+              Feels like {Math.round(current.apparentTemperature)}°C
+            </p>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3 sm:w-72">
+            <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+              <div className="flex items-center gap-2 text-slate-400">
+                <Droplets size={16} />
+                <span className="text-xs font-medium">Humidity</span>
+              </div>
+
+              <p className="mt-3 text-xl font-semibold">{current.humidity}%</p>
+            </div>
+
+            <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+              <div className="flex items-center gap-2 text-slate-400">
+                <Wind size={16} />
+                <span className="text-xs font-medium">Wind</span>
+              </div>
+
+              <p className="mt-3 text-xl font-semibold">
+                {Math.round(current.windSpeed)} km/h
+              </p>
+            </div>
+
+            <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+              <div className="flex items-center gap-2 text-slate-400">
+                <Thermometer size={16} />
+                <span className="text-xs font-medium">Feels like</span>
+              </div>
+
+              <p className="mt-3 text-xl font-semibold">
+                {Math.round(current.apparentTemperature)}°C
+              </p>
+            </div>
+
+            <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+              <div className="flex items-center gap-2 text-slate-400">
+                <Gauge size={16} />
+                <span className="text-xs font-medium">Condition</span>
+              </div>
+
+              <p className="mt-3 truncate text-sm font-semibold">
+                {getWeatherDescription(current.weatherCode)}
+              </p>
+            </div>
+          </div>
         </div>
       </div>
-    </div>
+    </section>
   );
 }
