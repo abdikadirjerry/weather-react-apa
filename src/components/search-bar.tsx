@@ -1,23 +1,35 @@
 "use client";
 
-import { Search, Navigation } from "lucide-react";
+import { LoaderCircle, Navigation, Search } from "lucide-react";
 import { FormEvent, useState } from "react";
 
-export function SearchBar() {
+interface SearchBarProps {
+  onSearch: (city: string) => Promise<void>;
+  isLoading: boolean;
+}
+
+export function SearchBar({ onSearch, isLoading }: SearchBarProps) {
   const [query, setQuery] = useState("");
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
-    if (!query.trim()) {
+    const trimmedQuery = query.trim();
+
+    if (!trimmedQuery || isLoading) {
       return;
     }
 
-    console.log("Searching for:", query.trim());
+    await onSearch(trimmedQuery);
+    setQuery("");
   }
 
-  function handleCurrentLocation() {
-    console.log("Current location requested");
+  async function handleCurrentLocation() {
+    if (isLoading) {
+      return;
+    }
+
+    await onSearch("Hargeisa");
   }
 
   return (
@@ -35,21 +47,34 @@ export function SearchBar() {
             onChange={(event) => setQuery(event.target.value)}
             placeholder="Search for a city..."
             aria-label="Search for a city"
-            className="h-12 w-full rounded-2xl border border-slate-200 bg-slate-50 pl-11 pr-4 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-slate-400 focus:bg-white focus:ring-2 focus:ring-slate-200"
+            disabled={isLoading}
+            className="h-12 w-full rounded-2xl border border-slate-200 bg-slate-50 pl-11 pr-4 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-slate-400 focus:bg-white focus:ring-2 focus:ring-slate-200 disabled:cursor-not-allowed disabled:opacity-60"
           />
         </div>
 
         <button
           type="submit"
-          className="h-12 rounded-2xl bg-slate-950 px-6 text-sm font-semibold text-white transition-colors hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-300 focus:ring-offset-2"
+          disabled={isLoading || !query.trim()}
+          className="flex h-12 items-center justify-center gap-2 rounded-2xl bg-slate-950 px-6 text-sm font-semibold text-white transition-colors hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-300 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
         >
-          Search
+          {isLoading ? (
+            <>
+              <LoaderCircle size={17} className="animate-spin" />
+              Searching
+            </>
+          ) : (
+            <>
+              <Search size={17} />
+              Search
+            </>
+          )}
         </button>
 
         <button
           type="button"
           onClick={handleCurrentLocation}
-          className="flex h-12 items-center justify-center gap-2 rounded-2xl border border-slate-200 px-5 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-300 focus:ring-offset-2"
+          disabled={isLoading}
+          className="flex h-12 items-center justify-center gap-2 rounded-2xl border border-slate-200 px-5 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-300 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
         >
           <Navigation size={17} />
           <span>Use my location</span>
