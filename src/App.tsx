@@ -29,15 +29,11 @@ function readSavedLocations(key: string): GeocodingResult[] {
   try {
     const stored = localStorage.getItem(key);
 
-    if (!stored) {
-      return [];
-    }
+    if (!stored) return [];
 
     const parsed: unknown = JSON.parse(stored);
 
-    if (!Array.isArray(parsed)) {
-      return [];
-    }
+    if (!Array.isArray(parsed)) return [];
 
     return parsed.filter(
       (item): item is GeocodingResult =>
@@ -77,7 +73,6 @@ function App() {
   const [history, setHistory] = useState<GeocodingResult[]>(() =>
     readSavedLocations(HISTORY_KEY),
   );
-
   const [favorites, setFavorites] = useState<GeocodingResult[]>(() =>
     readSavedLocations(FAVORITES_KEY),
   );
@@ -103,9 +98,7 @@ function App() {
   }, [favorites]);
 
   async function loadLocation(location: GeocodingResult) {
-    if (isLoading) {
-      return;
-    }
+    if (isLoading) return;
 
     setIsLoading(true);
     setError("");
@@ -118,13 +111,12 @@ function App() {
       setActiveLocation(location);
       setRetryTarget(null);
 
-      setHistory((previous) => {
-        const withoutDuplicate = previous.filter(
-          (item) => item.id !== location.id,
-        );
-
-        return [location, ...withoutDuplicate].slice(0, MAX_HISTORY_ITEMS);
-      });
+      setHistory((previous) =>
+        [location, ...previous.filter((item) => item.id !== location.id)].slice(
+          0,
+          MAX_HISTORY_ITEMS,
+        ),
+      );
     } catch (loadError) {
       console.error("Unable to load weather:", loadError);
       setError(getFriendlyErrorMessage(loadError));
@@ -136,9 +128,7 @@ function App() {
   async function handleSearch(city: string) {
     const trimmedCity = city.trim();
 
-    if (!trimmedCity || isLoading) {
-      return;
-    }
+    if (!trimmedCity || isLoading) return;
 
     setIsLoading(true);
     setError("");
@@ -161,13 +151,12 @@ function App() {
       setActiveLocation(location);
       setRetryTarget(null);
 
-      setHistory((previous) => {
-        const withoutDuplicate = previous.filter(
-          (item) => item.id !== location.id,
-        );
-
-        return [location, ...withoutDuplicate].slice(0, MAX_HISTORY_ITEMS);
-      });
+      setHistory((previous) =>
+        [location, ...previous.filter((item) => item.id !== location.id)].slice(
+          0,
+          MAX_HISTORY_ITEMS,
+        ),
+      );
     } catch (searchError) {
       console.error("Weather search failed:", searchError);
       setError(getFriendlyErrorMessage(searchError));
@@ -177,9 +166,7 @@ function App() {
   }
 
   async function retryLastAction() {
-    if (!retryTarget || isLoading) {
-      return;
-    }
+    if (!retryTarget || isLoading) return;
 
     if (retryTarget.type === "search") {
       await handleSearch(retryTarget.city);
@@ -189,9 +176,7 @@ function App() {
   }
 
   function toggleFavorite() {
-    if (!activeLocation) {
-      return;
-    }
+    if (!activeLocation) return;
 
     const isFavorite = favorites.some((item) => item.id === activeLocation.id);
 
@@ -214,14 +199,14 @@ function App() {
     favorites.some((item) => item.id === activeLocation.id);
 
   return (
-    <main className="min-h-screen bg-slate-50">
-      <div className="mx-auto w-full max-w-6xl px-4 py-8 sm:px-6 sm:py-12">
-        <header className="mb-10 text-center">
-          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-950 text-white shadow-sm">
-            <CloudSun size={28} />
+    <main className="min-h-screen overflow-x-clip bg-slate-50">
+      <div className="mx-auto w-full max-w-6xl px-3 py-6 sm:px-6 sm:py-10 lg:px-8 lg:py-12">
+        <header className="mb-7 text-center sm:mb-10">
+          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-950 text-white shadow-sm sm:h-14 sm:w-14">
+            <CloudSun size={27} aria-hidden="true" />
           </div>
 
-          <h1 className="mt-5 text-3xl font-bold tracking-tight text-slate-950 sm:text-4xl">
+          <h1 className="mt-4 text-3xl font-bold tracking-tight text-slate-950 sm:mt-5 sm:text-4xl">
             Weatherly
           </h1>
 
@@ -231,13 +216,16 @@ function App() {
           </p>
         </header>
 
-        <section className="mx-auto mb-8 max-w-3xl">
+        <section
+          aria-label="Search for weather"
+          className="mx-auto mb-7 w-full max-w-3xl sm:mb-8"
+        >
           <SearchBar onSearch={handleSearch} isLoading={isLoading} />
 
           {error && (
             <div
               role="alert"
-              className="mt-4 flex flex-col gap-3 rounded-2xl border border-red-200 bg-red-50 p-4 sm:flex-row sm:items-center"
+              className="mt-4 flex min-w-0 flex-col gap-3 rounded-2xl border border-red-200 bg-red-50 p-3 sm:flex-row sm:items-center sm:p-4"
             >
               <AlertCircle
                 size={21}
@@ -249,7 +237,9 @@ function App() {
                 <p className="text-sm font-semibold text-red-800">
                   Something needs your attention
                 </p>
-                <p className="mt-1 text-sm leading-5 text-red-700">{error}</p>
+                <p className="mt-1 break-words text-sm leading-5 text-red-700">
+                  {error}
+                </p>
                 {weather && (
                   <p className="mt-2 text-xs text-red-600">
                     Your previously loaded weather is still available below.
@@ -262,9 +252,9 @@ function App() {
                   type="button"
                   onClick={() => void retryLastAction()}
                   disabled={isLoading}
-                  className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl border border-red-200 bg-white px-3 py-2 text-sm font-semibold text-red-700 transition hover:bg-red-100 focus:outline-none focus:ring-2 focus:ring-red-300 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="inline-flex min-h-11 w-full shrink-0 items-center justify-center gap-2 rounded-xl border border-red-200 bg-white px-3 py-2 text-sm font-semibold text-red-700 transition hover:bg-red-100 focus:outline-none focus:ring-2 focus:ring-red-300 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
                 >
-                  <RefreshCw size={15} />
+                  <RefreshCw size={15} aria-hidden="true" />
                   Try again
                 </button>
               )}
@@ -277,7 +267,7 @@ function App() {
               aria-live="polite"
               className="mt-4 flex items-center justify-center gap-3 rounded-2xl border border-sky-100 bg-sky-50 px-4 py-4 text-sm text-sky-800"
             >
-              <LoaderCircle size={20} className="animate-spin" />
+              <LoaderCircle size={20} className="shrink-0 animate-spin" />
               <span className="font-medium">
                 {retryTarget?.type === "search"
                   ? `Searching for ${retryTarget.city}...`
@@ -287,45 +277,51 @@ function App() {
           )}
         </section>
 
-        <section className="mb-8 grid gap-6 lg:grid-cols-2">
-          <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
-            <div className="mb-4 flex items-center justify-between gap-3">
-              <div className="flex items-center gap-2">
-                <Clock3 size={19} className="text-slate-600" />
-                <h2 className="font-semibold text-slate-950">
+        <section
+          aria-label="Saved cities"
+          className="mb-7 grid min-w-0 gap-4 sm:mb-8 sm:gap-6 lg:grid-cols-2"
+        >
+          <div className="min-w-0 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:rounded-3xl sm:p-6">
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+              <div className="flex min-w-0 items-center gap-2">
+                <Clock3 size={19} className="shrink-0 text-slate-600" />
+                <h2 className="text-sm font-semibold text-slate-950 sm:text-base">
                   Recent searches
                 </h2>
+                <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600">
+                  {history.length}
+                </span>
               </div>
 
               {history.length > 0 && (
                 <button
                   type="button"
                   onClick={clearHistory}
-                  className="inline-flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-xs font-medium text-slate-500 transition hover:bg-red-50 hover:text-red-600 focus:outline-none focus:ring-2 focus:ring-slate-300"
+                  className="inline-flex min-h-10 items-center gap-1.5 rounded-lg px-2 py-1.5 text-xs font-medium text-slate-500 transition hover:bg-red-50 hover:text-red-600 focus:outline-none focus:ring-2 focus:ring-slate-300"
                   aria-label="Clear search history"
                 >
-                  <Trash2 size={14} />
+                  <Trash2 size={14} aria-hidden="true" />
                   Clear
                 </button>
               )}
             </div>
 
             {history.length === 0 ? (
-              <p className="rounded-2xl bg-slate-50 px-4 py-6 text-center text-sm text-slate-500">
+              <p className="rounded-xl bg-slate-50 px-3 py-5 text-center text-sm leading-6 text-slate-500 sm:rounded-2xl sm:px-4 sm:py-6">
                 Your recent searches will appear here.
               </p>
             ) : (
-              <ul className="space-y-2">
+              <ul className="space-y-1.5">
                 {history.map((location) => (
                   <li key={location.id}>
                     <button
                       type="button"
                       onClick={() => void loadLocation(location)}
                       disabled={isLoading}
-                      className="flex w-full items-center gap-3 rounded-2xl px-3 py-3 text-left transition hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-300 disabled:cursor-not-allowed disabled:opacity-50"
+                      className="flex min-h-14 w-full min-w-0 items-center gap-3 rounded-xl px-2.5 py-2.5 text-left transition hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-300 disabled:cursor-not-allowed disabled:opacity-50 sm:rounded-2xl sm:px-3"
                     >
                       <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-600">
-                        <MapPin size={17} />
+                        <MapPin size={17} aria-hidden="true" />
                       </span>
 
                       <span className="min-w-0 flex-1">
@@ -345,38 +341,44 @@ function App() {
             )}
           </div>
 
-          <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
-            <div className="mb-4 flex items-center gap-2">
-              <Star size={19} className="text-amber-500" />
-              <h2 className="font-semibold text-slate-950">Favorite cities</h2>
+          <div className="min-w-0 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:rounded-3xl sm:p-6">
+            <div className="mb-4 flex flex-wrap items-center gap-2">
+              <Star
+                size={19}
+                className="shrink-0 text-amber-500"
+                aria-hidden="true"
+              />
+              <h2 className="text-sm font-semibold text-slate-950 sm:text-base">
+                Favorite cities
+              </h2>
               <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600">
                 {favorites.length}
               </span>
             </div>
 
             {favorites.length === 0 ? (
-              <p className="rounded-2xl bg-slate-50 px-4 py-6 text-center text-sm leading-6 text-slate-500">
+              <p className="rounded-xl bg-slate-50 px-3 py-5 text-center text-sm leading-6 text-slate-500 sm:rounded-2xl sm:px-4 sm:py-6">
                 Search for a city, then select “Add to favorites” to save it
                 here.
               </p>
             ) : (
-              <ul className="space-y-2">
+              <ul className="space-y-1.5">
                 {favorites.map((location) => (
                   <li
                     key={location.id}
-                    className="flex items-center gap-2 rounded-2xl px-3 py-2 transition hover:bg-slate-50"
+                    className="flex min-w-0 items-center gap-2 rounded-xl px-2.5 py-2 transition hover:bg-slate-50 sm:rounded-2xl sm:px-3"
                   >
                     <button
                       type="button"
                       onClick={() => void loadLocation(location)}
                       disabled={isLoading}
-                      className="flex min-w-0 flex-1 items-center gap-3 rounded-xl py-1 text-left focus:outline-none focus:ring-2 focus:ring-slate-300 disabled:cursor-not-allowed disabled:opacity-50"
+                      className="flex min-h-11 min-w-0 flex-1 items-center gap-3 rounded-xl py-1 text-left focus:outline-none focus:ring-2 focus:ring-slate-300 disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-amber-50 text-amber-600">
-                        <MapPin size={17} />
+                        <MapPin size={17} aria-hidden="true" />
                       </span>
 
-                      <span className="min-w-0">
+                      <span className="min-w-0 flex-1">
                         <span className="block truncate text-sm font-semibold text-slate-800">
                           {location.name}
                         </span>
@@ -395,11 +397,11 @@ function App() {
                           previous.filter((item) => item.id !== location.id),
                         )
                       }
-                      className="rounded-lg p-2 text-slate-400 transition hover:bg-red-50 hover:text-red-600 focus:outline-none focus:ring-2 focus:ring-slate-300"
+                      className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-slate-400 transition hover:bg-red-50 hover:text-red-600 focus:outline-none focus:ring-2 focus:ring-slate-300"
                       aria-label={`Remove ${location.name} from favorites`}
                       title="Remove favorite"
                     >
-                      <Heart size={17} fill="currentColor" />
+                      <Heart size={17} fill="currentColor" aria-hidden="true" />
                     </button>
                   </li>
                 ))}
@@ -409,13 +411,13 @@ function App() {
         </section>
 
         {weather ? (
-          <div className="space-y-8">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div>
+          <div className="min-w-0 space-y-7 sm:space-y-8">
+            <div className="flex min-w-0 flex-col items-start justify-between gap-3 sm:flex-row sm:items-center">
+              <div className="min-w-0">
                 <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">
                   Current conditions
                 </p>
-                <p className="mt-1 text-sm text-slate-600">
+                <p className="mt-1 break-words text-sm text-slate-600">
                   {activeLocation
                     ? getLocationLabel(activeLocation)
                     : weather.location.name}
@@ -425,7 +427,7 @@ function App() {
               <button
                 type="button"
                 onClick={toggleFavorite}
-                className={`inline-flex items-center justify-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-semibold transition focus:outline-none focus:ring-2 focus:ring-slate-300 ${
+                className={`inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-semibold transition focus:outline-none focus:ring-2 focus:ring-slate-300 sm:w-auto ${
                   currentIsFavorite
                     ? "border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100"
                     : "border-slate-200 bg-white text-slate-700 hover:bg-slate-100"
@@ -433,6 +435,7 @@ function App() {
               >
                 <Star
                   size={17}
+                  aria-hidden="true"
                   fill={currentIsFavorite ? "currentColor" : "none"}
                 />
                 {currentIsFavorite ? "Remove favorite" : "Add to favorites"}
@@ -441,23 +444,30 @@ function App() {
 
             <WeatherCard weather={weather} />
 
-            <section>
+            <section
+              aria-label="Seven-day weather forecast"
+              className="min-w-0"
+            >
               <div className="mb-4">
-                <h2 className="text-xl font-bold tracking-tight text-slate-950">
+                <h2 className="text-xl font-bold tracking-tight text-slate-950 sm:text-2xl">
                   7-Day Forecast
                 </h2>
-                <p className="mt-1 text-sm text-slate-500">
+                <p className="mt-1 text-sm leading-6 text-slate-500">
                   Daily temperatures, rain probability, and wind conditions.
+                </p>
+                <p className="mt-2 text-xs text-slate-400 sm:hidden">
+                  Swipe horizontally to see all seven days.
                 </p>
               </div>
 
-              <div className="flex gap-4 overflow-x-auto pb-3 lg:grid lg:grid-cols-4 xl:grid-cols-7">
+              <div className="flex snap-x snap-mandatory gap-3 overflow-x-auto overscroll-x-contain pb-4 [scrollbar-width:thin] sm:gap-4 lg:grid lg:grid-cols-4 lg:overflow-visible lg:pb-0 xl:grid-cols-7">
                 {weather.daily.map((forecast, index) => (
-                  <ForecastCard
+                  <div
                     key={forecast.date}
-                    forecast={forecast}
-                    index={index}
-                  />
+                    className="w-[min(72vw,190px)] shrink-0 snap-start sm:w-[190px] lg:w-auto"
+                  >
+                    <ForecastCard forecast={forecast} index={index} />
+                  </div>
                 ))}
               </div>
             </section>
@@ -465,7 +475,7 @@ function App() {
         ) : isLoading ? (
           <section
             aria-hidden="true"
-            className="rounded-3xl border border-slate-200 bg-white px-6 py-16 text-center shadow-sm"
+            className="rounded-2xl border border-slate-200 bg-white px-4 py-12 text-center shadow-sm sm:rounded-3xl sm:px-6 sm:py-16"
           >
             <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-sky-50 text-sky-600">
               <LoaderCircle size={28} className="animate-spin" />
@@ -473,14 +483,14 @@ function App() {
             <p className="mt-5 font-semibold text-slate-900">
               Getting your forecast ready
             </p>
-            <p className="mt-2 text-sm text-slate-500">
+            <p className="mt-2 text-sm leading-6 text-slate-500">
               Please wait while we retrieve the latest weather data.
             </p>
           </section>
         ) : error ? (
-          <section className="rounded-3xl border border-dashed border-slate-300 bg-white px-6 py-12 text-center">
+          <section className="rounded-2xl border border-dashed border-slate-300 bg-white px-4 py-10 text-center sm:rounded-3xl sm:px-6 sm:py-12">
             <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-100 text-slate-500">
-              <CloudSun size={26} />
+              <CloudSun size={26} aria-hidden="true" />
             </div>
             <h2 className="mt-5 text-lg font-semibold text-slate-900">
               No weather to display yet
@@ -491,9 +501,9 @@ function App() {
             </p>
           </section>
         ) : (
-          <section className="rounded-3xl border border-dashed border-slate-300 bg-white px-6 py-16 text-center">
+          <section className="rounded-2xl border border-dashed border-slate-300 bg-white px-4 py-12 text-center sm:rounded-3xl sm:px-6 sm:py-16">
             <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-100 text-slate-500">
-              <CloudSun size={26} />
+              <CloudSun size={26} aria-hidden="true" />
             </div>
 
             <h2 className="mt-5 text-lg font-semibold text-slate-900">
@@ -507,7 +517,7 @@ function App() {
           </section>
         )}
 
-        <footer className="mt-10 text-center text-xs text-slate-400">
+        <footer className="mt-8 pb-2 text-center text-xs leading-5 text-slate-400 sm:mt-10">
           Weatherly · Weather data provided by Open-Meteo.
         </footer>
       </div>
