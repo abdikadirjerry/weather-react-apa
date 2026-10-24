@@ -1,4 +1,8 @@
-import type { GeocodingResult, WeatherData } from "@/types/weather";
+import type {
+  DailyForecast,
+  GeocodingResult,
+  WeatherData,
+} from "@/types/weather";
 
 const GEOCODING_API_URL = "https://geocoding-api.open-meteo.com/v1/search";
 
@@ -16,6 +20,14 @@ interface WeatherResponse {
     wind_speed_10m?: number;
     weather_code?: number;
     is_day?: number;
+  };
+  daily?: {
+    time?: string[];
+    weather_code?: number[];
+    temperature_2m_max?: number[];
+    temperature_2m_min?: number[];
+    precipitation_probability_max?: number[];
+    wind_speed_10m_max?: number[];
   };
 }
 
@@ -52,7 +64,9 @@ export async function getWeather(
   const url = new URL(WEATHER_API_URL);
 
   url.searchParams.set("latitude", String(location.latitude));
+
   url.searchParams.set("longitude", String(location.longitude));
+
   url.searchParams.set(
     "current",
     [
@@ -64,6 +78,19 @@ export async function getWeather(
       "is_day",
     ].join(","),
   );
+
+  url.searchParams.set(
+    "daily",
+    [
+      "weather_code",
+      "temperature_2m_max",
+      "temperature_2m_min",
+      "precipitation_probability_max",
+      "wind_speed_10m_max",
+    ].join(","),
+  );
+
+  url.searchParams.set("forecast_days", "7");
   url.searchParams.set("timezone", "auto");
 
   const response = await fetch(url.toString());
@@ -74,9 +101,26 @@ export async function getWeather(
 
   const data: WeatherResponse = await response.json();
 
-  if (!data.current) {
+  if (!data.current || !data.daily) {
     throw new Error("Weather data is unavailable for this location.");
   }
+
+  const dates = data.daily.time ?? [];
+  const weatherCodes = data.daily.weather_code ?? [];
+  const temperatureMax = data.daily.temperature_2m_max ?? [];
+  const temperatureMin = data.daily.temperature_2m_min ?? [];
+  const precipitationProbability =
+    data.daily.precipitation_probability_max ?? [];
+  const windSpeed = data.daily.wind_speed_10m_max ?? [];
+
+  const daily: DailyForecast[] = dates.map((date, index) => ({
+    date,
+    weatherCode: weatherCodes[index] ?? 0,
+    temperatureMax: temperatureMax[index] ?? 0,
+    temperatureMin: temperatureMin[index] ?? 0,
+    precipitationProbability: precipitationProbability[index] ?? 0,
+    windSpeed: windSpeed[index] ?? 0,
+  }));
 
   return {
     location: {
@@ -93,5 +137,6 @@ export async function getWeather(
       weatherCode: data.current.weather_code ?? 0,
       isDay: data.current.is_day === 1,
     },
+    daily,
   };
 }

@@ -1,8 +1,9 @@
 "use client";
 
 import { FormEvent, useState } from "react";
-import { LoaderCircle, Search, CloudSun } from "lucide-react";
+import { CloudSun, LoaderCircle, Search } from "lucide-react";
 
+import { ForecastCard } from "@/components/forecast-card";
 import { WeatherCard } from "@/components/weather-card";
 import { getWeather, searchCity } from "@/lib/weather-api";
 import type { WeatherData } from "@/types/weather";
@@ -53,7 +54,7 @@ export default function Home() {
 
   return (
     <main className="min-h-screen bg-slate-50">
-      <div className="mx-auto w-full max-w-5xl px-4 py-8 sm:px-6 sm:py-12">
+      <div className="mx-auto w-full max-w-6xl px-4 py-8 sm:px-6 sm:py-12">
         <header className="mb-10 text-center">
           <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-950 text-white shadow-sm">
             <CloudSun size={28} />
@@ -64,7 +65,8 @@ export default function Home() {
           </h1>
 
           <p className="mx-auto mt-3 max-w-xl text-sm leading-6 text-slate-500 sm:text-base">
-            Search for any city and get current weather conditions in seconds.
+            Search for any city and get current weather conditions plus a
+            seven-day forecast.
           </p>
         </header>
 
@@ -90,6 +92,7 @@ export default function Home() {
                 onChange={(event) => setCity(event.target.value)}
                 placeholder="Enter a city..."
                 disabled={isLoading}
+                autoComplete="off"
                 className="w-full rounded-2xl border border-slate-200 bg-white py-3.5 pl-11 pr-4 text-sm text-slate-900 shadow-sm outline-none transition focus:border-slate-400 focus:ring-2 focus:ring-slate-200 disabled:cursor-not-allowed disabled:opacity-60"
               />
             </div>
@@ -124,7 +127,31 @@ export default function Home() {
         </section>
 
         {weather ? (
-          <WeatherCard weather={weather} />
+          <div className="space-y-8">
+            <WeatherCard weather={weather} />
+
+            <section>
+              <div className="mb-4">
+                <h2 className="text-xl font-bold tracking-tight text-slate-950">
+                  7-Day Forecast
+                </h2>
+
+                <p className="mt-1 text-sm text-slate-500">
+                  Daily temperature, rain probability, and wind conditions.
+                </p>
+              </div>
+
+              <div className="flex gap-4 overflow-x-auto pb-3 lg:grid lg:grid-cols-4 xl:grid-cols-7">
+                {weather.daily.map((forecast, index) => (
+                  <ForecastCard
+                    key={forecast.date}
+                    forecast={forecast}
+                    index={index}
+                  />
+                ))}
+              </div>
+            </section>
+          </div>
         ) : (
           !isLoading &&
           !error && (
@@ -138,7 +165,8 @@ export default function Home() {
               </h2>
 
               <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-slate-500">
-                Enter a city name above to see its current weather conditions.
+                Enter a city name above to see current conditions and the
+                seven-day forecast.
               </p>
             </section>
           )

@@ -54,10 +54,11 @@ export function WeatherCard({ weather }: WeatherCardProps) {
   return (
     <section className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
       <div className="bg-slate-950 px-6 py-8 text-white sm:px-8 sm:py-10">
-        <div className="flex flex-col justify-between gap-8 sm:flex-row sm:items-center">
+        <div className="flex flex-col justify-between gap-8 lg:flex-row lg:items-center">
           <div>
             <div className="flex items-center gap-2 text-sm text-slate-300">
               <MapPin size={16} />
+
               <span>
                 {location.name}
                 {location.country ? `, ${location.country}` : ""}
@@ -81,7 +82,7 @@ export function WeatherCard({ weather }: WeatherCardProps) {
             </p>
           </div>
 
-          <div className="grid grid-cols-2 gap-3 sm:w-72">
+          <div className="grid grid-cols-2 gap-3 lg:w-80">
             <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
               <div className="flex items-center gap-2 text-slate-400">
                 <Droplets size={16} />
@@ -116,11 +117,11 @@ export function WeatherCard({ weather }: WeatherCardProps) {
             <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
               <div className="flex items-center gap-2 text-slate-400">
                 <Gauge size={16} />
-                <span className="text-xs font-medium">Condition</span>
+                <span className="text-xs font-medium">Daylight</span>
               </div>
 
-              <p className="mt-3 truncate text-sm font-semibold">
-                {getWeatherDescription(current.weatherCode)}
+              <p className="mt-3 text-sm font-semibold">
+                {current.isDay ? "Daytime" : "Nighttime"}
               </p>
             </div>
           </div>

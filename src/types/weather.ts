@@ -7,6 +7,15 @@ export interface GeocodingResult {
   admin1?: string;
 }
 
+export interface DailyForecast {
+  date: string;
+  weatherCode: number;
+  temperatureMax: number;
+  temperatureMin: number;
+  precipitationProbability: number;
+  windSpeed: number;
+}
+
 export interface WeatherData {
   location: {
     name: string;
@@ -22,4 +31,5 @@ export interface WeatherData {
     weatherCode: number;
     isDay: boolean;
   };
+  daily: DailyForecast[];
 }
