@@ -3,10 +3,17 @@ import { useState, type FormEvent } from "react";
 
 interface SearchBarProps {
   onSearch: (city: string) => Promise<void>;
+  onCurrentLocation: () => Promise<void>;
   isLoading: boolean;
+  isLocating: boolean;
 }
 
-export function SearchBar({ onSearch, isLoading }: SearchBarProps) {
+export function SearchBar({
+  onSearch,
+  onCurrentLocation,
+  isLoading,
+  isLocating,
+}: SearchBarProps) {
   const [query, setQuery] = useState("");
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -20,15 +27,6 @@ export function SearchBar({ onSearch, isLoading }: SearchBarProps) {
 
     await onSearch(trimmedQuery);
     setQuery("");
-  }
-
-  async function handleCurrentLocation() {
-    if (isLoading) {
-      return;
-    }
-
-    // This existing action searches Hargeisa; it does not read device GPS.
-    await onSearch("Hargeisa");
   }
 
   return (
@@ -64,14 +62,14 @@ export function SearchBar({ onSearch, isLoading }: SearchBarProps) {
           disabled={isLoading || !query.trim()}
           className="flex min-h-12 w-full min-w-0 items-center justify-center gap-2 rounded-xl bg-slate-950 px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-300 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto sm:rounded-2xl sm:px-6"
         >
-          {isLoading ? (
+          {isLoading && !isLocating ? (
             <>
               <LoaderCircle size={17} className="animate-spin" />
               <span>Searching...</span>
             </>
           ) : (
             <>
-              <Search size={17} />
+              <Search size={17} aria-hidden="true" />
               <span>Search</span>
             </>
           )}
@@ -79,14 +77,23 @@ export function SearchBar({ onSearch, isLoading }: SearchBarProps) {
 
         <button
           type="button"
-          onClick={handleCurrentLocation}
+          onClick={() => void onCurrentLocation()}
           disabled={isLoading}
-          aria-label="Search weather for Hargeisa"
-          title="Search weather for Hargeisa"
+          aria-label="Get weather for my current location"
+          title="Use your device's current location"
           className="flex min-h-12 w-full min-w-0 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-300 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto sm:rounded-2xl sm:px-5"
         >
-          <Navigation size={17} aria-hidden="true" />
-          <span>Hargeisa</span>
+          {isLocating ? (
+            <LoaderCircle
+              size={17}
+              className="animate-spin"
+              aria-hidden="true"
+            />
+          ) : (
+            <Navigation size={17} aria-hidden="true" />
+          )}
+
+          <span>{isLocating ? "Finding location..." : "Use my location"}</span>
         </button>
       </form>
     </section>

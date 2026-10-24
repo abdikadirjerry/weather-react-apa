@@ -23,7 +23,8 @@ const MAX_HISTORY_ITEMS = 5;
 
 type RetryTarget =
   | { type: "search"; city: string }
-  | { type: "location"; location: GeocodingResult };
+  | { type: "location"; location: GeocodingResult }
+  | { type: "current-location" };
 
 function readSavedLocations(key: string): GeocodingResult[] {
   try {
@@ -64,6 +65,44 @@ function getFriendlyErrorMessage(error: unknown): string {
   return "We couldn't load the weather right now. The service may be temporarily unavailable. Please try again.";
 }
 
+function getGeolocationErrorMessage(error: unknown): string {
+  if (typeof error === "object" && error !== null && "code" in error) {
+    const code = error.code;
+
+    if (code === 1) {
+      return "Location permission was denied. Allow location access in your browser settings, then try again.";
+    }
+
+    if (code === 2) {
+      return "Your device couldn't determine your location. Check that location services are enabled and try again.";
+    }
+
+    if (code === 3) {
+      return "Finding your location took too long. Please try again.";
+    }
+  }
+
+  return "We couldn't access your current location. Check your browser permissions and try again.";
+}
+
+function createCurrentLocation(
+  latitude: number,
+  longitude: number,
+): GeocodingResult {
+  // A stable negative ID distinguishes GPS coordinates from city IDs.
+  const id =
+    -Math.round((latitude + 90) * 10_000) * 100_000 -
+    Math.round((longitude + 180) * 100);
+
+  return {
+    id,
+    name: "Your location",
+    latitude,
+    longitude,
+    country: "",
+  };
+}
+
 function App() {
   const [weather, setWeather] = useState<WeatherData | null>(null);
   const [activeLocation, setActiveLocation] = useState<GeocodingResult | null>(
@@ -78,6 +117,7 @@ function App() {
   );
 
   const [isLoading, setIsLoading] = useState(false);
+  const [isLocating, setIsLocating] = useState(false);
   const [error, setError] = useState("");
   const [retryTarget, setRetryTarget] = useState<RetryTarget | null>(null);
 
@@ -165,13 +205,80 @@ function App() {
     }
   }
 
+  async function handleCurrentLocation() {
+    if (isLoading) return;
+
+    if (!("geolocation" in navigator)) {
+      setError(
+        "Your browser doesn't support geolocation. You can still search for a city manually.",
+      );
+      setRetryTarget(null);
+      return;
+    }
+
+    setIsLoading(true);
+    setIsLocating(true);
+    setError("");
+    setRetryTarget({ type: "current-location" });
+
+    try {
+      const position = await new Promise<GeolocationPosition>(
+        (resolve, reject) => {
+          navigator.geolocation.getCurrentPosition(resolve, reject, {
+            enableHighAccuracy: false,
+            timeout: 15_000,
+            maximumAge: 300_000,
+          });
+        },
+      );
+
+      const location = createCurrentLocation(
+        position.coords.latitude,
+        position.coords.longitude,
+      );
+
+      setIsLocating(false);
+      setRetryTarget({ type: "location", location });
+
+      const weatherData = await getWeather(location);
+
+      setWeather(weatherData);
+      setActiveLocation(location);
+      setRetryTarget(null);
+
+      setHistory((previous) =>
+        [location, ...previous.filter((item) => item.id !== location.id)].slice(
+          0,
+          MAX_HISTORY_ITEMS,
+        ),
+      );
+    } catch (locationError) {
+      console.error("Current location request failed:", locationError);
+
+      if (
+        typeof locationError === "object" &&
+        locationError !== null &&
+        "code" in locationError
+      ) {
+        setError(getGeolocationErrorMessage(locationError));
+      } else {
+        setError(getFriendlyErrorMessage(locationError));
+      }
+    } finally {
+      setIsLoading(false);
+      setIsLocating(false);
+    }
+  }
+
   async function retryLastAction() {
     if (!retryTarget || isLoading) return;
 
     if (retryTarget.type === "search") {
       await handleSearch(retryTarget.city);
-    } else {
+    } else if (retryTarget.type === "location") {
       await loadLocation(retryTarget.location);
+    } else {
+      await handleCurrentLocation();
     }
   }
 
@@ -220,7 +327,12 @@ function App() {
           aria-label="Search for weather"
           className="mx-auto mb-7 w-full max-w-3xl sm:mb-8"
         >
-          <SearchBar onSearch={handleSearch} isLoading={isLoading} />
+          <SearchBar
+            onSearch={handleSearch}
+            onCurrentLocation={handleCurrentLocation}
+            isLoading={isLoading}
+            isLocating={isLocating}
+          />
 
           {error && (
             <div
@@ -269,9 +381,11 @@ function App() {
             >
               <LoaderCircle size={20} className="shrink-0 animate-spin" />
               <span className="font-medium">
-                {retryTarget?.type === "search"
-                  ? `Searching for ${retryTarget.city}...`
-                  : "Loading weather data..."}
+                {isLocating
+                  ? "Finding your current location..."
+                  : retryTarget?.type === "search"
+                    ? `Searching for ${retryTarget.city}...`
+                    : "Loading weather data..."}
               </span>
             </div>
           )}
