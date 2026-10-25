@@ -9,18 +9,24 @@ interface CurrentWeatherProps {
   low: number;
 }
 
-function getWeatherIcon(condition: string) {
+function WeatherConditionIcon({
+  condition,
+  size,
+}: {
+  condition: string;
+  size: number;
+}) {
   const normalizedCondition = condition.toLowerCase();
 
   if (normalizedCondition.includes("sunny")) {
-    return Sun;
+    return <Sun size={size} strokeWidth={1.3} />;
   }
 
   if (normalizedCondition.includes("wind")) {
-    return Wind;
+    return <Wind size={size} strokeWidth={1.3} />;
   }
 
-  return Cloud;
+  return <Cloud size={size} strokeWidth={1.3} />;
 }
 
 export function CurrentWeather({
@@ -31,8 +37,6 @@ export function CurrentWeather({
   high,
   low,
 }: CurrentWeatherProps) {
-  const WeatherIcon = getWeatherIcon(condition);
-
   return (
     <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
       <div className="p-6 sm:p-8 lg:p-10">
@@ -74,7 +78,7 @@ export function CurrentWeather({
           </div>
 
           <div className="flex h-36 w-36 items-center justify-center self-center rounded-full bg-slate-100 text-slate-700 sm:h-44 sm:w-44">
-            <WeatherIcon size={76} strokeWidth={1.3} />
+            <WeatherConditionIcon condition={condition} size={76} />
           </div>
         </div>
       </div>

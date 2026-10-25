@@ -143,24 +143,24 @@ function App() {
   useEffect(() => {
     try {
       localStorage.setItem(HISTORY_KEY, JSON.stringify(history));
-    } catch {
-      setError("Unable to save search history in this browser.");
+    } catch (error) {
+      console.error("Unable to save search history:", error);
     }
   }, [history]);
 
   useEffect(() => {
     try {
       localStorage.setItem(FAVORITES_KEY, JSON.stringify(favorites));
-    } catch {
-      setError("Unable to save favorite cities in this browser.");
+    } catch (error) {
+      console.error("Unable to save favorite cities:", error);
     }
   }, [favorites]);
 
   useEffect(() => {
     try {
       localStorage.setItem(TEMPERATURE_UNIT_KEY, temperatureUnit);
-    } catch {
-      setError("Unable to save temperature preference in this browser.");
+    } catch (error) {
+      console.error("Unable to save temperature preference:", error);
     }
   }, [temperatureUnit]);
 
@@ -658,14 +658,13 @@ function App() {
               </div>
 
               <div className="flex snap-x snap-mandatory gap-3 overflow-x-auto overscroll-x-contain pb-4 [scrollbar-width:thin] sm:gap-4 lg:grid lg:grid-cols-4 lg:overflow-visible lg:pb-0 xl:grid-cols-7">
-                {weather.daily.map((forecast, index) => (
+                {weather.daily.map((forecast) => (
                   <div
                     key={forecast.date}
                     className="w-[min(72vw,190px)] shrink-0 snap-start sm:w-[190px] lg:w-auto"
                   >
                     <ForecastCard
                       forecast={forecast}
-                      index={index}
                       temperatureUnit={temperatureUnit}
                     />
                   </div>

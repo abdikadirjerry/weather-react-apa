@@ -1,6 +1,26 @@
-import type { WeatherData, WeatherForecast } from "@/types/weather";
+interface LegacyWeatherData {
+  city: string;
+  country: string;
+  temperature: number;
+  condition: string;
+  high: number;
+  low: number;
+  humidity: number;
+  windSpeed: number;
+  visibility: number;
+  pressure: number;
+  sunrise: string;
+  sunset: string;
+}
 
-const weatherData: Record<string, WeatherData> = {
+interface WeatherForecast {
+  day: string;
+  condition: string;
+  temperature: number;
+  low: number;
+}
+
+const weatherData: Record<string, LegacyWeatherData> = {
   hargaisa: {
     city: "Hargeisa",
     country: "Somaliland",
@@ -87,18 +107,17 @@ const weatherData: Record<string, WeatherData> = {
   },
 };
 
-export function getWeatherData(city: string): WeatherData | null {
+export function getWeatherData(city: string): LegacyWeatherData | null {
   const normalizedCity = city.trim().toLowerCase().replace(/\s+/g, "");
 
   return weatherData[normalizedCity] ?? null;
 }
 
-export function getForecast(weather: WeatherData): WeatherForecast[] {
+export function getForecast(weather: LegacyWeatherData): WeatherForecast[] {
   const temperatureChanges = [0, -1, 1, 2, 0];
+  const days = ["Today", "Tomorrow", "Monday", "Tuesday", "Wednesday"];
 
   return temperatureChanges.map((change, index) => {
-    const days = ["Today", "Tomorrow", "Monday", "Tuesday", "Wednesday"];
-
     const temperature = weather.temperature + change;
 
     return {

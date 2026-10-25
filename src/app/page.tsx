@@ -1,6 +1,7 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { useState } from "react";
+import type { FormEvent } from "react";
 import { CloudSun, LoaderCircle, Search } from "lucide-react";
 
 import { ForecastCard } from "@/components/forecast-card";
@@ -142,12 +143,8 @@ export default function Home() {
               </div>
 
               <div className="flex gap-4 overflow-x-auto pb-3 lg:grid lg:grid-cols-4 xl:grid-cols-7">
-                {weather.daily.map((forecast, index) => (
-                  <ForecastCard
-                    key={forecast.date}
-                    forecast={forecast}
-                    index={index}
-                  />
+                {weather.daily.map((forecast) => (
+                  <ForecastCard key={forecast.date} forecast={forecast} />
                 ))}
               </div>
             </section>
