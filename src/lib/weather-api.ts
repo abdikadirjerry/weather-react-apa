@@ -8,8 +8,23 @@ const GEOCODING_API_URL = "https://geocoding-api.open-meteo.com/v1/search";
 
 const WEATHER_API_URL = "https://api.open-meteo.com/v1/forecast";
 
+const REVERSE_GEOCODING_API_URL = "https://nominatim.openstreetmap.org/reverse";
+
 interface GeocodingResponse {
   results?: GeocodingResult[];
+}
+
+interface ReverseGeocodingResponse {
+  address?: {
+    city?: string;
+    town?: string;
+    village?: string;
+    municipality?: string;
+    county?: string;
+    state?: string;
+    region?: string;
+    country?: string;
+  };
 }
 
 interface WeatherResponse {
@@ -58,13 +73,56 @@ export async function searchCity(
   return data.results?.[0] ?? null;
 }
 
+export async function reverseGeocode(
+  latitude: number,
+  longitude: number,
+): Promise<Pick<GeocodingResult, "name" | "admin1" | "country"> | null> {
+  const url = new URL(REVERSE_GEOCODING_API_URL);
+
+  url.searchParams.set("lat", String(latitude));
+  url.searchParams.set("lon", String(longitude));
+  url.searchParams.set("format", "jsonv2");
+  url.searchParams.set("addressdetails", "1");
+  url.searchParams.set("zoom", "10");
+  url.searchParams.set("accept-language", "en");
+
+  const response = await fetch(url.toString());
+
+  if (!response.ok) {
+    throw new Error("Unable to identify your current location.");
+  }
+
+  const data: ReverseGeocodingResponse = await response.json();
+  const address = data.address;
+
+  if (!address) {
+    return null;
+  }
+
+  const name =
+    address.city ??
+    address.town ??
+    address.village ??
+    address.municipality ??
+    address.county;
+
+  if (!name) {
+    return null;
+  }
+
+  return {
+    name,
+    admin1: address.state ?? address.region,
+    country: address.country,
+  };
+}
+
 export async function getWeather(
   location: GeocodingResult,
 ): Promise<WeatherData> {
   const url = new URL(WEATHER_API_URL);
 
   url.searchParams.set("latitude", String(location.latitude));
-
   url.searchParams.set("longitude", String(location.longitude));
 
   url.searchParams.set(
