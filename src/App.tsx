@@ -15,10 +15,15 @@ import { ForecastCard } from "./components/forecast-card";
 import { SearchBar } from "./components/search-bar";
 import { WeatherCard } from "./components/weather-card";
 import { getWeather, searchCity } from "./lib/weather-api";
-import type { GeocodingResult, WeatherData } from "./types/weather";
+import type {
+  GeocodingResult,
+  TemperatureUnit,
+  WeatherData,
+} from "./types/weather";
 
 const HISTORY_KEY = "weatherly-search-history";
 const FAVORITES_KEY = "weatherly-favorite-cities";
+const TEMPERATURE_UNIT_KEY = "weatherly-temperature-unit";
 const MAX_HISTORY_ITEMS = 5;
 
 type RetryTarget =
@@ -47,6 +52,16 @@ function readSavedLocations(key: string): GeocodingResult[] {
     );
   } catch {
     return [];
+  }
+}
+
+function readTemperatureUnit(): TemperatureUnit {
+  try {
+    const stored = localStorage.getItem(TEMPERATURE_UNIT_KEY);
+
+    return stored === "fahrenheit" ? "fahrenheit" : "celsius";
+  } catch {
+    return "celsius";
   }
 }
 
@@ -89,7 +104,6 @@ function createCurrentLocation(
   latitude: number,
   longitude: number,
 ): GeocodingResult {
-  // A stable negative ID distinguishes GPS coordinates from city IDs.
   const id =
     -Math.round((latitude + 90) * 10_000) * 100_000 -
     Math.round((longitude + 180) * 100);
@@ -112,8 +126,13 @@ function App() {
   const [history, setHistory] = useState<GeocodingResult[]>(() =>
     readSavedLocations(HISTORY_KEY),
   );
+
   const [favorites, setFavorites] = useState<GeocodingResult[]>(() =>
     readSavedLocations(FAVORITES_KEY),
+  );
+
+  const [temperatureUnit, setTemperatureUnit] = useState<TemperatureUnit>(() =>
+    readTemperatureUnit(),
   );
 
   const [isLoading, setIsLoading] = useState(false);
@@ -136,6 +155,14 @@ function App() {
       setError("Unable to save favorite cities in this browser.");
     }
   }, [favorites]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(TEMPERATURE_UNIT_KEY, temperatureUnit);
+    } catch {
+      setError("Unable to save temperature preference in this browser.");
+    }
+  }, [temperatureUnit]);
 
   async function loadLocation(location: GeocodingResult) {
     if (isLoading) return;
@@ -301,6 +328,12 @@ function App() {
     setHistory([]);
   }
 
+  function toggleTemperatureUnit() {
+    setTemperatureUnit((currentUnit) =>
+      currentUnit === "celsius" ? "fahrenheit" : "celsius",
+    );
+  }
+
   const currentIsFavorite =
     activeLocation !== null &&
     favorites.some((item) => item.id === activeLocation.id);
@@ -313,9 +346,46 @@ function App() {
             <CloudSun size={27} aria-hidden="true" />
           </div>
 
-          <h1 className="mt-4 text-3xl font-bold tracking-tight text-slate-950 sm:mt-5 sm:text-4xl">
-            Weatherly
-          </h1>
+          <div className="mt-4 flex flex-col items-center gap-4 sm:mt-5 sm:flex-row sm:items-center sm:justify-center">
+            <div>
+              <h1 className="text-3xl font-bold tracking-tight text-slate-950 sm:text-4xl">
+                Weatherly
+              </h1>
+
+              <p className="mt-2 text-sm text-slate-500 sm:text-base">
+                Your simple weather dashboard
+              </p>
+            </div>
+
+            <button
+              type="button"
+              onClick={toggleTemperatureUnit}
+              aria-label={`Switch to ${
+                temperatureUnit === "celsius" ? "Fahrenheit" : "Celsius"
+              }`}
+              className="inline-flex min-h-10 items-center rounded-full border border-slate-200 bg-white p-1 text-xs font-bold shadow-sm transition focus:outline-none focus:ring-2 focus:ring-slate-300"
+            >
+              <span
+                className={`rounded-full px-3 py-1.5 transition ${
+                  temperatureUnit === "celsius"
+                    ? "bg-slate-950 text-white"
+                    : "text-slate-500"
+                }`}
+              >
+                °C
+              </span>
+
+              <span
+                className={`rounded-full px-3 py-1.5 transition ${
+                  temperatureUnit === "fahrenheit"
+                    ? "bg-slate-950 text-white"
+                    : "text-slate-500"
+                }`}
+              >
+                °F
+              </span>
+            </button>
+          </div>
 
           <p className="mx-auto mt-3 max-w-xl text-sm leading-6 text-slate-500 sm:text-base">
             Search for any city to explore current weather conditions and a
@@ -349,9 +419,11 @@ function App() {
                 <p className="text-sm font-semibold text-red-800">
                   Something needs your attention
                 </p>
+
                 <p className="mt-1 break-words text-sm leading-5 text-red-700">
                   {error}
                 </p>
+
                 {weather && (
                   <p className="mt-2 text-xs text-red-600">
                     Your previously loaded weather is still available below.
@@ -380,6 +452,7 @@ function App() {
               className="mt-4 flex items-center justify-center gap-3 rounded-2xl border border-sky-100 bg-sky-50 px-4 py-4 text-sm text-sky-800"
             >
               <LoaderCircle size={20} className="shrink-0 animate-spin" />
+
               <span className="font-medium">
                 {isLocating
                   ? "Finding your current location..."
@@ -399,9 +472,11 @@ function App() {
             <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
               <div className="flex min-w-0 items-center gap-2">
                 <Clock3 size={19} className="shrink-0 text-slate-600" />
+
                 <h2 className="text-sm font-semibold text-slate-950 sm:text-base">
                   Recent searches
                 </h2>
+
                 <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600">
                   {history.length}
                 </span>
@@ -442,6 +517,7 @@ function App() {
                         <span className="block truncate text-sm font-semibold text-slate-800">
                           {location.name}
                         </span>
+
                         <span className="block truncate text-xs text-slate-500">
                           {[location.admin1, location.country]
                             .filter(Boolean)
@@ -462,9 +538,11 @@ function App() {
                 className="shrink-0 text-amber-500"
                 aria-hidden="true"
               />
+
               <h2 className="text-sm font-semibold text-slate-950 sm:text-base">
                 Favorite cities
               </h2>
+
               <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600">
                 {favorites.length}
               </span>
@@ -496,6 +574,7 @@ function App() {
                         <span className="block truncate text-sm font-semibold text-slate-800">
                           {location.name}
                         </span>
+
                         <span className="block truncate text-xs text-slate-500">
                           {[location.admin1, location.country]
                             .filter(Boolean)
@@ -531,6 +610,7 @@ function App() {
                 <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">
                   Current conditions
                 </p>
+
                 <p className="mt-1 break-words text-sm text-slate-600">
                   {activeLocation
                     ? getLocationLabel(activeLocation)
@@ -552,11 +632,12 @@ function App() {
                   aria-hidden="true"
                   fill={currentIsFavorite ? "currentColor" : "none"}
                 />
+
                 {currentIsFavorite ? "Remove favorite" : "Add to favorites"}
               </button>
             </div>
 
-            <WeatherCard weather={weather} />
+            <WeatherCard weather={weather} temperatureUnit={temperatureUnit} />
 
             <section
               aria-label="Seven-day weather forecast"
@@ -566,9 +647,11 @@ function App() {
                 <h2 className="text-xl font-bold tracking-tight text-slate-950 sm:text-2xl">
                   7-Day Forecast
                 </h2>
+
                 <p className="mt-1 text-sm leading-6 text-slate-500">
                   Daily temperatures, rain probability, and wind conditions.
                 </p>
+
                 <p className="mt-2 text-xs text-slate-400 sm:hidden">
                   Swipe horizontally to see all seven days.
                 </p>
@@ -580,7 +663,11 @@ function App() {
                     key={forecast.date}
                     className="w-[min(72vw,190px)] shrink-0 snap-start sm:w-[190px] lg:w-auto"
                   >
-                    <ForecastCard forecast={forecast} index={index} />
+                    <ForecastCard
+                      forecast={forecast}
+                      index={index}
+                      temperatureUnit={temperatureUnit}
+                    />
                   </div>
                 ))}
               </div>
@@ -594,9 +681,11 @@ function App() {
             <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-sky-50 text-sky-600">
               <LoaderCircle size={28} className="animate-spin" />
             </div>
+
             <p className="mt-5 font-semibold text-slate-900">
               Getting your forecast ready
             </p>
+
             <p className="mt-2 text-sm leading-6 text-slate-500">
               Please wait while we retrieve the latest weather data.
             </p>
@@ -606,9 +695,11 @@ function App() {
             <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-100 text-slate-500">
               <CloudSun size={26} aria-hidden="true" />
             </div>
+
             <h2 className="mt-5 text-lg font-semibold text-slate-900">
               No weather to display yet
             </h2>
+
             <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-slate-500">
               Check the message above and try searching for a city again. Your
               weather forecast will appear here when the request succeeds.
