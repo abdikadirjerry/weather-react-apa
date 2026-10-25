@@ -1,3 +1,5 @@
+export type TemperatureUnit = "celsius" | "fahrenheit";
+
 export interface GeocodingResult {
   id: number;
   name: string;
