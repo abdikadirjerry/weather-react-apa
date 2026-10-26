@@ -25,25 +25,25 @@ vi.mock("./components/search-bar", () => ({
   }: {
     onSearch: (city: string) => void;
     isLoading: boolean;
-  }) => {
-    return (
-      <form
-        onSubmit={(event) => {
-          event.preventDefault();
-          const form = event.currentTarget;
-          const input = form.elements.namedItem("city") as HTMLInputElement;
-          onSearch(input.value);
-        }}
-      >
-        <label htmlFor="city">City</label>
-        <input id="city" name="city" />
-        <button type="submit" disabled={isLoading}>
-          Search
-        </button>
-      </form>
-    );
-  },
+  }) => (
+    <form
+      onSubmit={(event) => {
+        event.preventDefault();
+        const form = event.currentTarget;
+        const input = form.elements.namedItem("city") as HTMLInputElement;
+        onSearch(input.value);
+      }}
+    >
+      <label htmlFor="city">City</label>
+      <input id="city" name="city" />
+      <button type="submit" disabled={isLoading}>
+        Search
+      </button>
+    </form>
+  ),
 }));
+
+const HISTORY_KEY = "weatherly-search-history";
 
 const mockLocation: GeocodingResult = {
   id: 1,
@@ -81,6 +81,23 @@ const mockWeather: WeatherData = {
   ],
 };
 
+async function searchForCity(
+  user: ReturnType<typeof userEvent.setup>,
+  city: string,
+) {
+  const input = screen.getByRole("textbox", { name: "City" });
+
+  await user.clear(input);
+  await user.type(input, city);
+  await user.click(screen.getByRole("button", { name: "Search" }));
+}
+
+function readHistory(): GeocodingResult[] {
+  return JSON.parse(
+    localStorage.getItem(HISTORY_KEY) ?? "[]",
+  ) as GeocodingResult[];
+}
+
 describe("App loading and error handling", () => {
   beforeEach(() => {
     localStorage.clear();
@@ -115,6 +132,7 @@ describe("App loading and error handling", () => {
     resolveWeather(mockWeather);
 
     expect(await screen.findByTestId("weather-card")).toBeInTheDocument();
+
     await waitFor(() => {
       expect(screen.queryByRole("status")).not.toBeInTheDocument();
     });
@@ -127,8 +145,7 @@ describe("App loading and error handling", () => {
     const user = userEvent.setup();
     render(<App />);
 
-    await user.type(screen.getByLabelText("City"), "Hargeisa");
-    await user.click(screen.getByRole("button", { name: "Search" }));
+    await searchForCity(user, "Hargeisa");
 
     expect(await screen.findByTestId("weather-card")).toBeInTheDocument();
     expect(
@@ -143,8 +160,7 @@ describe("App loading and error handling", () => {
     const user = userEvent.setup();
     render(<App />);
 
-    await user.type(screen.getByLabelText("City"), "Hargeisa");
-    await user.click(screen.getByRole("button", { name: "Search" }));
+    await searchForCity(user, "Hargeisa");
 
     expect(
       await screen.findByText(
@@ -163,8 +179,7 @@ describe("App loading and error handling", () => {
     const user = userEvent.setup();
     render(<App />);
 
-    await user.type(screen.getByLabelText("City"), "UnknownCity");
-    await user.click(screen.getByRole("button", { name: "Search" }));
+    await searchForCity(user, "UnknownCity");
 
     expect(
       await screen.findByText(
@@ -184,12 +199,132 @@ describe("App loading and error handling", () => {
     const user = userEvent.setup();
     render(<App />);
 
-    await user.type(screen.getByLabelText("City"), "Hargeisa");
-    await user.click(screen.getByRole("button", { name: "Search" }));
+    await searchForCity(user, "Hargeisa");
 
     await user.click(await screen.findByRole("button", { name: /try again/i }));
 
     expect(await screen.findByTestId("weather-card")).toBeInTheDocument();
     expect(getWeather).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe("App search history", () => {
+  beforeEach(() => {
+    localStorage.clear();
+    vi.clearAllMocks();
+
+    vi.mocked(getWeather).mockResolvedValue(mockWeather);
+
+    vi.mocked(searchCity).mockImplementation(async (city) => ({
+      ...mockLocation,
+      id: city.startsWith("City")
+        ? Number(city.slice(4)) + 10
+        : city === "Berbera"
+          ? 2
+          : 1,
+      name: city,
+    }));
+  });
+
+  afterEach(() => {
+    cleanup();
+  });
+
+  it("adds a successfully searched city to recent searches", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+
+    await searchForCity(user, "Hargeisa");
+
+    await waitFor(() => {
+      expect(readHistory().map((location) => location.name)).toEqual([
+        "Hargeisa",
+      ]);
+    });
+  });
+
+  it("moves a repeated city to the top without creating a duplicate", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+
+    await searchForCity(user, "Hargeisa");
+
+    await waitFor(() => {
+      expect(readHistory()).toHaveLength(1);
+    });
+
+    await searchForCity(user, "Berbera");
+
+    await waitFor(() => {
+      expect(readHistory().map((location) => location.name)).toEqual([
+        "Berbera",
+        "Hargeisa",
+      ]);
+    });
+
+    await searchForCity(user, "Hargeisa");
+
+    await waitFor(() => {
+      expect(readHistory().map((location) => location.name)).toEqual([
+        "Hargeisa",
+        "Berbera",
+      ]);
+    });
+  });
+
+  it("keeps a maximum of five recent searches", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+
+    for (let number = 1; number <= 6; number++) {
+      await searchForCity(user, `City${number}`);
+
+      await waitFor(() => {
+        expect(readHistory()).toHaveLength(Math.min(number, 5));
+      });
+    }
+
+    expect(readHistory().map((location) => location.name)).toEqual([
+      "City6",
+      "City5",
+      "City4",
+      "City3",
+      "City2",
+    ]);
+  });
+
+  it("clears all recent searches when Clear is clicked", async () => {
+    localStorage.setItem(HISTORY_KEY, JSON.stringify([mockLocation]));
+
+    const user = userEvent.setup();
+    render(<App />);
+
+    expect(
+      await screen.findByRole("button", { name: /hargeisa/i }),
+    ).toBeInTheDocument();
+
+    await user.click(
+      screen.getByRole("button", { name: "Clear search history" }),
+    );
+
+    expect(
+      screen.getByText("Your recent searches will appear here."),
+    ).toBeInTheDocument();
+
+    await waitFor(() => {
+      expect(readHistory()).toEqual([]);
+    });
+  });
+
+  it("restores saved search history from localStorage", () => {
+    localStorage.setItem(HISTORY_KEY, JSON.stringify([mockLocation]));
+
+    render(<App />);
+
+    expect(
+      screen.getByRole("button", { name: /hargeisa/i }),
+    ).toBeInTheDocument();
+
+    expect(screen.getByText("Recent searches")).toBeInTheDocument();
   });
 });
