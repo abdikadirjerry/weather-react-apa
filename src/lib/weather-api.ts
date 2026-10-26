@@ -30,10 +30,10 @@ interface ReverseGeocodingResponse {
 interface WeatherResponse {
   current?: {
     temperature_2m?: number;
-    apparent_temperature?: number;
     relative_humidity_2m?: number;
-    wind_speed_10m?: number;
+    apparent_temperature?: number;
     weather_code?: number;
+    wind_speed_10m?: number;
     is_day?: number;
   };
   daily?: {
@@ -65,7 +65,7 @@ export async function searchCity(
   const response = await fetch(url.toString());
 
   if (!response.ok) {
-    throw new Error("Unable to search for that location.");
+    throw new Error("Unable to search for that city.");
   }
 
   const data: GeocodingResponse = await response.json();
@@ -113,7 +113,7 @@ export async function reverseGeocode(
   return {
     name,
     admin1: address.state ?? address.region,
-    country: address.country,
+    country: address.country ?? "",
   };
 }
 
@@ -129,10 +129,10 @@ export async function getWeather(
     "current",
     [
       "temperature_2m",
-      "apparent_temperature",
       "relative_humidity_2m",
-      "wind_speed_10m",
+      "apparent_temperature",
       "weather_code",
+      "wind_speed_10m",
       "is_day",
     ].join(","),
   );
@@ -148,37 +148,82 @@ export async function getWeather(
     ].join(","),
   );
 
-  url.searchParams.set("forecast_days", "7");
   url.searchParams.set("timezone", "auto");
+  url.searchParams.set("forecast_days", "7");
 
   const response = await fetch(url.toString());
 
   if (!response.ok) {
-    throw new Error("Unable to retrieve weather data.");
+    throw new Error("Unable to load weather data.");
   }
 
   const data: WeatherResponse = await response.json();
 
   if (!data.current || !data.daily) {
-    throw new Error("Weather data is unavailable for this location.");
+    throw new Error("Weather data is unavailable right now.");
   }
 
-  const dates = data.daily.time ?? [];
-  const weatherCodes = data.daily.weather_code ?? [];
-  const temperatureMax = data.daily.temperature_2m_max ?? [];
-  const temperatureMin = data.daily.temperature_2m_min ?? [];
-  const precipitationProbability =
-    data.daily.precipitation_probability_max ?? [];
-  const windSpeed = data.daily.wind_speed_10m_max ?? [];
+  const {
+    temperature_2m: temperature,
+    relative_humidity_2m: humidity,
+    apparent_temperature: apparentTemperature,
+    weather_code: weatherCode,
+    wind_speed_10m: windSpeed,
+    is_day: isDay,
+  } = data.current;
 
-  const daily: DailyForecast[] = dates.map((date, index) => ({
-    date,
-    weatherCode: weatherCodes[index] ?? 0,
-    temperatureMax: temperatureMax[index] ?? 0,
-    temperatureMin: temperatureMin[index] ?? 0,
-    precipitationProbability: precipitationProbability[index] ?? 0,
-    windSpeed: windSpeed[index] ?? 0,
-  }));
+  const {
+    time,
+    weather_code: weatherCodes,
+    temperature_2m_max: maxTemperatures,
+    temperature_2m_min: minTemperatures,
+    precipitation_probability_max: precipitationProbabilities,
+    wind_speed_10m_max: dailyWindSpeeds,
+  } = data.daily;
+
+  if (
+    temperature === undefined ||
+    humidity === undefined ||
+    apparentTemperature === undefined ||
+    weatherCode === undefined ||
+    windSpeed === undefined ||
+    isDay === undefined ||
+    !time ||
+    !weatherCodes ||
+    !maxTemperatures ||
+    !minTemperatures ||
+    !precipitationProbabilities ||
+    !dailyWindSpeeds
+  ) {
+    throw new Error("Weather data is incomplete.");
+  }
+
+  const daily: DailyForecast[] = time.map((date, index) => {
+    const forecastWeatherCode = weatherCodes[index];
+    const temperatureMax = maxTemperatures[index];
+    const temperatureMin = minTemperatures[index];
+    const precipitationProbability = precipitationProbabilities[index];
+    const forecastWindSpeed = dailyWindSpeeds[index];
+
+    if (
+      forecastWeatherCode === undefined ||
+      temperatureMax === undefined ||
+      temperatureMin === undefined ||
+      precipitationProbability === undefined ||
+      forecastWindSpeed === undefined
+    ) {
+      throw new Error("Weather forecast data is incomplete.");
+    }
+
+    return {
+      date,
+      weatherCode: forecastWeatherCode,
+      temperatureMax,
+      temperatureMin,
+      precipitationProbability,
+      windSpeed: forecastWindSpeed,
+    };
+  });
 
   return {
     location: {
@@ -188,12 +233,12 @@ export async function getWeather(
       longitude: location.longitude,
     },
     current: {
-      temperature: data.current.temperature_2m ?? 0,
-      apparentTemperature: data.current.apparent_temperature ?? 0,
-      humidity: data.current.relative_humidity_2m ?? 0,
-      windSpeed: data.current.wind_speed_10m ?? 0,
-      weatherCode: data.current.weather_code ?? 0,
-      isDay: data.current.is_day === 1,
+      temperature,
+      apparentTemperature,
+      humidity,
+      windSpeed,
+      weatherCode,
+      isDay: isDay === 1,
     },
     daily,
   };
